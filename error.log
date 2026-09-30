@@ -1,0 +1,4 @@
+2026-09-30 19:31:20,401 - ERROR - Număr invalid de parametri. Utilizare: python3 currency_exchange_rate.py <from> <to> <YYYY-MM-DD>
+2026-09-30 19:31:27,052 - ERROR - Moneda 'ABC' nu este suportată. Monede disponibile: EUR, MDL, RON, RUS, UAH, USD
+2026-09-30 19:31:31,005 - ERROR - Data trebuie să fie în formatul YYYY-MM-DD.
+2026-09-30 19:31:35,819 - ERROR - Data trebuie să fie în perioada 2025-01-01 - 2025-09-15.
