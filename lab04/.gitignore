@@ -1,0 +1,6 @@
+.env
+secrets/
+
+# Repository-uri Git separate
+php-katas/
+php-price-calculator/
