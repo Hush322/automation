@@ -8,7 +8,7 @@ Arhitectura (toate containerele sunt în rețeaua `jenkins-network`):
 
 | Serviciu | Rol |
 |---|---|
-| `jenkins-controller` | Interfața Jenkins, coordonează pipeline-urile |
+| `jenkins-controller` | Interfața Jenkins, coordonează pipeline-urile (`restart: unless-stopped`) |
 | `ssh-agent` | Agent (label `php-agent`): Composer + PHPUnit |
 | `ansible-agent` | Agent (label `ansible-agent`): rulează playbook-urile Ansible |
 | `test-server` | Ubuntu cu SSH; configurat de Ansible; web pe `localhost:8081` |
@@ -22,6 +22,7 @@ lab05/
 ├── Dockerfile.ansible_agent
 ├── Dockerfile.test_server
 ├── scripts/            (entrypoint-uri: scriu cheile publice în authorized_keys)
+├── screenshots/        (capturi de ecran pentru raport)
 ├── ansible/
 │   ├── ansible.cfg
 │   ├── hosts.ini
@@ -132,18 +133,28 @@ Pentru fiecare se creează un job de tip **Pipeline** cu *Pipeline script from S
 
 Ordinea de rulare: `ansible-setup` → `php-build-and-test` → `php-deploy`.
 
-## 9. Testarea aplicației
+## 9. Rezultate și testarea aplicației
 
-După deploy, aplicația este disponibilă la `http://localhost:8081`.
+Toate cele trei pipeline-uri au rulat cu succes (`Finished: SUCCESS`):
 
-<!-- TODO: adaugă captură de ecran cu pipeline-urile (SUCCESS) și cu pagina din browser -->
+- `ansible-setup` – `PLAY RECAP`: `ok=12 changed=10 unreachable=0 failed=0`;
+- `php-build-and-test` – testele PHPUnit au trecut (4 teste, 4 aserțiuni);
+- `php-deploy` – aplicația a fost copiată pe serverul de test și a răspuns cu HTTP 200.
+
+După deploy, aplicația este disponibilă în browser la `http://localhost:8081`.
+
+![Agenții Jenkins online](screenshots/nodes.png)
+![Pipeline ansible-setup](screenshots/ansible-setup.png)
+![Pipeline php-build-and-test](screenshots/php-build-and-test.png)
+![Pipeline php-deploy](screenshots/php-deploy.png)
+![Aplicația pe serverul de test](screenshots/app.png)
 
 ## 10. Răspunsuri la întrebări
 
 **Care sunt avantajele utilizării Ansible pentru configurarea serverelor?**
 - Este *agentless*: folosește doar SSH și Python pe server, fără software suplimentar.
 - Playbook-urile YAML sunt declarative și ușor de citit.
-- Taskurile sunt idempotente: rularea repetată nu modifică un server deja configurat.
+- Taskurile sunt idempotente: rularea repetată nu modifică un server deja configurat (la a doua rulare majoritatea taskurilor apar ca `ok`, nu `changed`).
 - Configurația este cod, deci poate fi versionată în Git și reutilizată pe multe servere.
 - Reduce erorile manuale și se integrează bine cu CI/CD (Jenkins).
 
@@ -151,8 +162,14 @@ După deploy, aplicația este disponibilă la `http://localhost:8081`.
 `apt`/`yum`/`package` (pachete), `service`/`systemd` (servicii), `copy`/`template`/`lineinfile`/`blockinfile` (fișiere), `file` (permisiuni, directoare), `user`/`group`, `git`, `command`/`shell`, `cron`, `docker_container`, `ufw`/`firewalld`, `uri`, `apache2_module`, `mysql_db`/`postgresql_db`, `synchronize`.
 
 **Ce probleme ați întâmpinat și cum le-ați rezolvat?**
-<!-- COMPLETEAZĂ cu problemele reale. Exemple posibile: -->
-- *Containerul nu rulează systemd* – modulul `service` nu putea porni Apache; soluție: `use: service`.
-- *Ansible nu putea rula module pe server* – lipsea `python3` pe imaginea Ubuntu; a fost adăugat în `Dockerfile.test_server`.
-- *Eroare de permisiuni la cheia privată* – cheia trebuie să aibă permisiuni 600; soluție: folosirea `withCredentials`, care creează un fișier temporar cu permisiunile corecte.
-- *Verificarea cheii host-ului SSH* – a fost dezactivată în `ansible.cfg` (`host_key_checking = False`) pentru mediul de laborator.
+
+1. *Docker nu era disponibil în WSL* – comanda `docker` nu era găsită în distribuția WSL. Soluție: activarea opțiunii *WSL integration* pentru distribuția folosită în Docker Desktop (Settings → Resources → WSL integration).
+2. *Jenkins s-a oprit după instalarea pluginurilor* – după restartul cerut de Jenkins, containerul `jenkins-controller` a ieșit și `localhost:8080` nu mai răspundea (`ERR_CONNECTION_REFUSED`). În Docker, procesul principal s-a încheiat, iar containerul nu avea politică de repornire. Soluție: repornirea cu `docker compose up -d` și adăugarea `restart: unless-stopped` în `compose.yaml`.
+3. *Credențiale SSH asemănătoare* – `ssh-agent-key` și `ansible-agent-key` au același username (`jenkins`) și se deosebesc doar după ID. Soluție: verificarea ID-urilor și a log-ului nodului până la starea *Online*; cheia `ansible-server-key` (username `ansible`) se folosește doar în pipeline.
+4. *Lipsa unei pagini web în proiectul PHP* – proiectul conținea doar clasa `PriceCalculator` și testele, deci nu exista ce să fie verificat în browser. Soluție: adăugarea fișierului `public/index.php`.
+5. *Containerele nu rulează systemd* – modulul `service` nu poate gestiona Apache prin systemd. Soluție: `use: service` în taskurile Apache.
+6. *Ansible are nevoie de Python pe server* – imaginea Ubuntu nu îl include. Soluție: `python3` instalat în `Dockerfile.test_server`.
+
+## 11. Concluzie
+
+Am creat un mediu format din Jenkins Controller, un agent SSH pentru build/teste, un agent Ansible și un server de test. Serverul a fost configurat automat cu Ansible (Apache2, PHP, virtual host), iar aplicația PHP a fost testată și instalată prin pipeline-uri Jenkins, fără pași manuali pe server.
