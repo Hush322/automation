@@ -1,0 +1,5 @@
+# Daily at 06:00 - MDL to EUR for previous day
+0 6 * * * root API_URL=http://host.docker.internal:8080/ /bin/sh -c '/usr/local/bin/python3 /app/currency_exchange_rate.py MDL EUR $(date -d yesterday +\%Y-\%m-\%d)' >> /var/log/cron.log 2>&1
+
+# Every Friday at 17:00 - MDL to USD for previous Friday
+0 17 * * 5 root API_URL=http://host.docker.internal:8080/ /bin/sh -c '/usr/local/bin/python3 /app/currency_exchange_rate.py MDL USD $(date -d "7 days ago" +\%Y-\%m-\%d)' >> /var/log/cron.log 2>&1

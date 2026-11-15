@@ -1,0 +1,29 @@
+---
+- name: Deploy proiect PHP pe serverul de test
+  hosts: test_servers
+  become: true
+
+  vars:
+    # Se transmite din pipeline: -e project_dir=$WORKSPACE/php-app
+    project_dir: "{{ playbook_dir }}/../../php-app"
+
+  tasks:
+    - name: Copiere cod sursa (src) si pagina web (public)
+      ansible.builtin.copy:
+        src: "{{ project_dir }}/{{ item }}/"
+        dest: "{{ app_root }}/{{ item }}/"
+        owner: www-data
+        group: www-data
+        mode: preserve
+      loop:
+        - src
+        - public
+
+    - name: Verificare sintaxa PHP a paginii principale
+      ansible.builtin.command: "php -l {{ document_root }}/index.php"
+      changed_when: false
+
+    - name: Verificare ca aplicatia raspunde HTTP 200
+      ansible.builtin.uri:
+        url: http://localhost/
+        status_code: 200

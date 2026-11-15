@@ -1,0 +1,32 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    openjdk-21-jre-headless \
+    openssh-server \
+    openssh-client \
+    ansible \
+    python3 \
+    git \
+    curl \
+    ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Utilizatorul "jenkins" folosit de Jenkins Controller pentru conectarea prin SSH
+RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
+    usermod -p '*' jenkins && \
+    mkdir -p /home/jenkins/agent /home/jenkins/.ssh /run/sshd && \
+    chown -R jenkins:jenkins /home/jenkins && \
+    chmod 700 /home/jenkins/.ssh
+
+# Doar autentificare cu chei SSH
+RUN printf 'PasswordAuthentication no\nPubkeyAuthentication yes\nPermitRootLogin no\n' \
+    > /etc/ssh/sshd_config.d/10-jenkins.conf
+
+COPY scripts/entrypoint-agent.sh /usr/local/bin/entrypoint-agent.sh
+RUN chmod +x /usr/local/bin/entrypoint-agent.sh
+
+EXPOSE 22
+ENTRYPOINT ["/usr/local/bin/entrypoint-agent.sh"]

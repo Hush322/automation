@@ -1,0 +1,78 @@
+---
+- name: Configurarea serverului de test (Apache2 + PHP)
+  hosts: test_servers
+  become: true
+
+  tasks:
+    - name: Actualizare cache apt
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Instalare Apache2
+      ansible.builtin.apt:
+        name: apache2
+        state: present
+
+    - name: Instalare PHP si extensiile necesare
+      ansible.builtin.apt:
+        name: "{{ php_packages }}"
+        state: present
+      notify: Restart Apache
+
+    - name: Activare modul Apache rewrite
+      community.general.apache2_module:
+        name: rewrite
+        state: present
+      notify: Restart Apache
+
+    - name: Creare director radacina pentru aplicatie
+      ansible.builtin.file:
+        path: "{{ document_root }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Pagina implicita (pana la deploy)
+      ansible.builtin.copy:
+        dest: "{{ document_root }}/index.php"
+        content: "<?php echo 'Serverul de test este configurat. Aplicatia nu a fost inca instalata.'; ?>\n"
+        owner: www-data
+        group: www-data
+        mode: "0644"
+        force: false
+
+    - name: Configurare virtual host pentru proiectul PHP
+      ansible.builtin.template:
+        src: php-app.conf.j2
+        dest: "/etc/apache2/sites-available/{{ app_name }}.conf"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Apache
+
+    - name: Dezactivare site implicit Apache
+      ansible.builtin.command: a2dissite 000-default
+      args:
+        removes: /etc/apache2/sites-enabled/000-default.conf
+      notify: Restart Apache
+
+    - name: Activare virtual host al aplicatiei
+      ansible.builtin.command: "a2ensite {{ app_name }}"
+      args:
+        creates: "/etc/apache2/sites-enabled/{{ app_name }}.conf"
+      notify: Restart Apache
+
+    - name: Pornire Apache2
+      ansible.builtin.service:
+        name: apache2
+        state: started
+        use: service
+
+  handlers:
+    - name: Restart Apache
+      ansible.builtin.service:
+        name: apache2
+        state: restarted
+        use: service

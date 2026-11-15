@@ -1,0 +1,31 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# python3 este necesar pentru ca Ansible sa poata rula module pe server
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    openssh-server \
+    sudo \
+    python3 \
+    ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Utilizatorul "ansible" cu drepturi sudo fara parola
+RUN useradd -m -s /bin/bash ansible && \
+    usermod -p '*' ansible && \
+    mkdir -p /home/ansible/.ssh /run/sshd && \
+    chown -R ansible:ansible /home/ansible && \
+    chmod 700 /home/ansible/.ssh && \
+    echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ansible && \
+    chmod 440 /etc/sudoers.d/ansible
+
+# Doar autentificare cu chei SSH
+RUN printf 'PasswordAuthentication no\nPubkeyAuthentication yes\nPermitRootLogin no\n' \
+    > /etc/ssh/sshd_config.d/10-ansible.conf
+
+COPY scripts/entrypoint-test-server.sh /usr/local/bin/entrypoint-test-server.sh
+RUN chmod +x /usr/local/bin/entrypoint-test-server.sh
+
+EXPOSE 22 80
+ENTRYPOINT ["/usr/local/bin/entrypoint-test-server.sh"]

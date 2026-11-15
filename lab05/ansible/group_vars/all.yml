@@ -1,0 +1,14 @@
+---
+app_name: php-app
+app_root: /var/www/php-app
+document_root: "{{ app_root }}/public"
+server_name: test-server
+server_admin: webmaster@localhost
+
+php_packages:
+  - php
+  - libapache2-mod-php
+  - php-cli
+  - php-xml
+  - php-mbstring
+  - php-curl
